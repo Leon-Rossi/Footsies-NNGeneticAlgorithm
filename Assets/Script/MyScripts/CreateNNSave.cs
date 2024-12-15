@@ -12,7 +12,7 @@ public class CreateNNSave : MonoBehaviour
 
     int layerCount;
     int layerSize;
-    int inputCount = 10;
+    int inputCount = 18;
     int outputCount = 2;
 
     string saveName;
@@ -74,7 +74,7 @@ public class CreateNNSave : MonoBehaviour
         {
             aiControl = GameObject.Find("GameMaster").GetComponent<AIControl>();
 
-            aiControl.AISaves.Add(new AISave(mutationFactor, mutationThreshhold, populationCount, layerCount, layerSize, inputCount, outputCount, saveName));
+            aiControl.AISaves.Add(new AISave(mutationFactor, mutationThreshhold, populationCount, layerCount, inputCount, layerSize, outputCount, saveName));
             
             AIMenu.SetActive(true);
             GameObject.Find("CreateNNMenu").SetActive(false);

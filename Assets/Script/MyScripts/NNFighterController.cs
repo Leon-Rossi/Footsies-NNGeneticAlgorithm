@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Footsies;
-using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 using UnityEngine.Animations;
 using UnityEngine.XR;
@@ -21,7 +20,7 @@ public class NNFighterController : MonoBehaviour
 
     int NNLeft;
     int NNRight;
-    int maxFightPerCapita = 8;
+    int maxFightPerCapita = 4;
 
     float leftTimeSinceNoAttack;
     float rightTimeSinceNoAttack;
@@ -30,7 +29,9 @@ public class NNFighterController : MonoBehaviour
     int listPos;
 
     bool isVsNN;
-    
+    private int rightLastOutputResult;
+    private int leftLastOutputResult;
+
 
     // Start is called before the first frame update
     void Awake()
@@ -74,8 +75,6 @@ public class NNFighterController : MonoBehaviour
     public void NextNNDuel(bool rightFighterWon = false, bool draw = false, bool winByGuard = false)
     {
         int gameValue = winByGuard ? 3 : 30;
-
-        print(NNRight + " " + NNLeft);
 
         float WinExpectedRight = (float)(1/(1+ Math.Pow(10, (NNList[NNLeft][0][0][0][1] - NNList[NNRight][0][0][0][1])/ 400)));
         float WinExpectedLeft = (float)(1/(1+ Math.Pow(10, (NNList[NNRight][0][0][0][1] - NNList[NNLeft][0][0][0][1])/ 400)));
@@ -166,7 +165,7 @@ public class NNFighterController : MonoBehaviour
 
         int inputData = 0;
 
-        List<float> output = neuralNetworkController.RunNN(NNList[NNRight], GetRightInputs(), NeuralNetworkController.ActivationFunctions.Sigmoid);
+        List<float> output = neuralNetworkController.RunNN(NNList[NNRight], GetInput(false), NeuralNetworkController.ActivationFunctions.Sigmoid);
         
         //Add outputs as Fighter Inputs
         if(output[0] > 0.5)
@@ -191,6 +190,8 @@ public class NNFighterController : MonoBehaviour
         inputData |= attack ? (int)InputDefine.Attack : 0;
         inputData |= moveLeft ? (int)InputDefine.Left : 0;
         inputData |= moveRight ? (int)InputDefine.Right : 0;
+        
+        rightLastOutputResult = inputData;
 
         return inputData;
     }
@@ -203,7 +204,7 @@ public class NNFighterController : MonoBehaviour
 
         int inputData = 0;
 
-        List<float> output = neuralNetworkController.RunNN(NNList[NNLeft], GetLeftInputs(), NeuralNetworkController.ActivationFunctions.Sigmoid);
+        List<float> output = neuralNetworkController.RunNN(NNList[NNLeft], GetInput(true), NeuralNetworkController.ActivationFunctions.Sigmoid);
         
         //Add outputs as Fighter Inputs
         if(output[0] > 0.5)
@@ -229,44 +230,56 @@ public class NNFighterController : MonoBehaviour
         inputData |= moveLeft ? (int)InputDefine.Left : 0;
         inputData |= moveRight ? (int)InputDefine.Right : 0;
 
+        leftLastOutputResult = inputData;
+        
         return inputData;
     }
 
-    public List<float> GetLeftInputs()
+    public List<float> GetInput(bool isLeftFighter)
     {
-        return new List<float>(){
-            Math.Abs(battleCore.fighter2.position.x - battleCore.fighter1.position.x),
+        List<float> leftInfo = new List<float>(){
+        leftLastOutputResult == 1 || leftLastOutputResult == 5? 1 : 0,
+        leftLastOutputResult == 2 || leftLastOutputResult == 6? 1 : 0,
+        leftLastOutputResult >= 4 ? 1 : 0,
+        leftLastOutputResult == 7 || leftLastOutputResult == 8? 1 : 0,
 
-            leftTimeSinceNoAttack,
-            battleCore.fighter1.currentActionID,
-            battleCore.fighter1.currentActionFrame,
-            battleCore.fighter1.currentHitStunFrame,
-            battleCore.fighter1.guardHealth,
+        Math.Clamp(leftTimeSinceNoAttack /100, 0, 1),
 
-            rightTimeSinceNoAttack,
-            battleCore.fighter2.currentActionID,
-            battleCore.fighter2.currentActionFrame,
-            battleCore.fighter2.currentHitStunFrame,
-            battleCore.fighter2.guardHealth,
+        battleCore.fighter1.guardHealth == 0 ? 1 : 0,
+        battleCore.fighter1.currentHitStunFrame != 0 ? 1 : 0,
+        battleCore.fighter1.isAlwaysCancelable? 1 : (float)battleCore.fighter1.currentActionFrame / (float)battleCore.fighter1.currentActionFrameCount,
         };
-    }
 
-    public List<float> GetRightInputs()
-    {
-        return new List<float>(){
-            Math.Abs(battleCore.fighter2.position.x - battleCore.fighter1.position.x),
+        List<float> rightInfo = new List<float>(){
+        rightLastOutputResult == 1 || rightLastOutputResult == 5? 1 : 0,
+        rightLastOutputResult == 2 || rightLastOutputResult == 6? 1 : 0,
+        rightLastOutputResult >= 4 ? 1 : 0,
+        rightLastOutputResult == 7 || rightLastOutputResult == 8? 1 : 0,
 
-            rightTimeSinceNoAttack,
-            battleCore.fighter2.currentActionID,
-            battleCore.fighter2.currentActionFrame,
-            battleCore.fighter2.currentHitStunFrame,
-            battleCore.fighter2.guardHealth,
+        Math.Clamp(rightTimeSinceNoAttack /100, 0, 1),
 
-            leftTimeSinceNoAttack,
-            battleCore.fighter1.currentActionID,
-            battleCore.fighter1.currentActionFrame,
-            battleCore.fighter1.currentHitStunFrame,
-            battleCore.fighter1.guardHealth,
+        battleCore.fighter2.guardHealth == 0 ? 1 : 0,
+        battleCore.fighter2.currentHitStunFrame != 0 ? 1 : 0,
+        battleCore.fighter2.isAlwaysCancelable? 1 : (float)battleCore.fighter2.currentActionFrame / (float)battleCore.fighter2.currentActionFrameCount,
         };
+
+        List<float> additionalInfo = new List<float>(){
+            Math.Abs(battleCore.fighter1.position.x - battleCore.fighter2.position.x),
+            battleCore.GetFrameAdvantage(isLeftFighter),
+        };
+
+        if(isLeftFighter)
+        {
+            leftInfo.AddRange(rightInfo);
+            leftInfo.AddRange(additionalInfo);
+
+            string stringOut = "Inputs: ";
+            leftInfo.ForEach(x => stringOut += x + " ");
+
+            return leftInfo;
+        }
+        rightInfo.AddRange(leftInfo);
+        rightInfo.AddRange(additionalInfo);
+        return rightInfo;
     }
 }

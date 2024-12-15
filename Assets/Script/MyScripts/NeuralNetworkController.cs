@@ -34,7 +34,7 @@ public class NeuralNetworkController : MonoBehaviour
                 node.Add(new List<float>());
                 node.Add(new List<float>());
 
-                node[0].Add(RandomValue());
+                node[0].Add(0);
                 
                 if(layer != nN[0])
                 {
@@ -67,7 +67,7 @@ public class NeuralNetworkController : MonoBehaviour
             node.Add(new List<float>());
             node.Add(new List<float>());
 
-            node[0].Add(RandomValue());
+            node[0].Add(0);
             
             foreach(int i in Enumerable.Range(1, layerSize))
             {

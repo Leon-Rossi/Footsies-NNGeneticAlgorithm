@@ -31,11 +31,11 @@ public class GeneticAlgorithm : MonoBehaviour
 
     public List<List<List<List<float>>>> SelectionFromList(List<List<List<List<List<float>>>>> list, float allFitnessValues)
     {
-        float selectedInt = UnityEngine.Random.value * allFitnessValues;
+        float selectedInt = UnityEngine.Random.value * allFitnessValues/100;
 
         foreach(List<List<List<List<float>>>> i in list)
         {
-            selectedInt -= i[0][0][0][1];
+            selectedInt -= i[0][0][0][1]/100;
             
             if(selectedInt <= 0)
             {
